@@ -24,6 +24,9 @@ static DWORD m_pid = 0;
 static char m_exeName[255];
 static bool m_isThreadRunning = true;
 
+static unsigned int m_numExceptions = 1;
+static const char m_exceptions[][16] = { "javaw.exe" };
+
 // Globals
 // 3D Vision
 extern GLD3DBuffers * gl_d3d_buffers;
@@ -79,23 +82,42 @@ DWORD GetPidFromExeName(void)
 	// Do some magic from here on
 	_getApplicationName(m_exeName);
 
-	DWORD pid = 0;
-	HANDLE hsnap;
-	PROCESSENTRY32 pt;
-	hsnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	pt.dwSize = sizeof(PROCESSENTRY32);
-	do
+	// We don't need to get too complex for the exception list
+	bool isException = false;
+	for (int i = 0; i < m_numExceptions; i++)
 	{
-		if (!strcmp(pt.szExeFile, m_exeName))
+		if (strcmp(m_exceptions[i], m_exeName) == 0)
 		{
-			pid = pt.th32ProcessID;
-			CloseHandle(hsnap);
-			// Save the current PID
-			m_pid = pid;
-			return pid;
+			isException = true;
+			break;
 		}
-	} while (Process32Next(hsnap, &pt));
-	return 0;
+	}
+
+	if (isException)
+	{
+		m_pid = GetCurrentProcessId();
+		return m_pid;
+	}
+	else
+	{
+		DWORD pid = 0;
+		HANDLE hsnap;
+		PROCESSENTRY32 pt;
+		hsnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		pt.dwSize = sizeof(PROCESSENTRY32);
+		do
+		{
+			if (!strcmp(pt.szExeFile, m_exeName))
+			{
+				pid = pt.th32ProcessID;
+				CloseHandle(hsnap);
+				// Save the current PID
+				m_pid = pid;
+				return pid;
+			}
+		} while (Process32Next(hsnap, &pt));
+		return 0;
+	}
 }
 ///-------------------------------------------------------------------------------------------
 
